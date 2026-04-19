@@ -1,0 +1,9 @@
+{
+    "eslint.validate": [
+      "javascript",
+      "javascriptreact",
+      "typescript"
+    ],
+    "js/ts.tsdk.path": "node_modules\\typescript\\lib"
+  }
+  
