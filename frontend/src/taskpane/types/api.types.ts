@@ -22,4 +22,4 @@ export interface AnalyzeSelectionResponse {
   metrics?: AnalysisMetrics;
   summary?: string;
   error?: string;
-}
+} 

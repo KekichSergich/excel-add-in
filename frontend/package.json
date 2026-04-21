@@ -9,7 +9,7 @@
   "config": {
     "app_to_debug": "excel",
     "app_type_to_debug": "desktop",
-    "dev_server_port": 3000
+    "dev_server_port": 3001
   },
   "scripts": {
     "build": "webpack --mode production",
@@ -30,6 +30,7 @@
     "@fluentui/react-icons": "^2.0.264",
     "core-js": "^3.36.0",
     "es6-promise": "^4.2.8",
+    "office-js": "^0.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "regenerator-runtime": "^0.14.1"
@@ -38,7 +39,7 @@
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.25.4",
     "@babel/preset-typescript": "^7.23.3",
-    "@types/office-js": "^1.0.377",
+    "@types/office-js": "^1.0.589",
     "@types/office-runtime": "^1.0.35",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
