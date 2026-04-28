@@ -14,5 +14,5 @@ export async function analyzeSelection(
     throw new Error(`HTTP error: ${response.status}`);
   }
 
-  return response.json();
+  return response.json() as Promise<AnalyzeSelectionResponse>;
 }
