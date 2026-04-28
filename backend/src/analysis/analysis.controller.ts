@@ -8,6 +8,6 @@ export class AnalysisController {
   @Post('selection')
   analyzeSelection(@Body() body: any) {
     console.log('[Backend] Received request:', body);
-    return this.analysisService.analyzeSelection(body);
+    return this.analysisService.prepareContext(body);
   }
 }
