@@ -1,10 +1,10 @@
 export interface SelectionContext {
   worksheetName: string;
-  adress: string;
+  address: string;
   values: unknown[][];
-  header: string;
+  headers: unknown[]; // ← массив, не строка
   dataRows: unknown[][];
   rowCount: number;
   colCount: number;
-  dataTypes: string[][];
+  dataTypes: string[]; // ← одномерный массив
 }
