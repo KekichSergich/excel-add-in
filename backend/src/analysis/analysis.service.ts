@@ -1,15 +1,5 @@
 import { Injectable } from '@nestjs/common';
-
-export interface SelectionContext {
-  worksheetName: string;
-  address: string;
-  values: unknown[][];
-  headers: unknown[];
-  dataRows: unknown[][];
-  rowCount: number;
-  colCount: number;
-  dataTypes: string[];
-}
+import { SelectionContext } from '../common/interfaces/selection.interface';
 
 @Injectable()
 export class AnalysisService {
