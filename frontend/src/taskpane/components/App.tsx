@@ -1,6 +1,7 @@
 import * as React from "react";
-import Header from "./Header";
-import AnalysisPanel from "./AnalysisPanel";
+import Header from "./Header/Header";
+import AnalysisPanel from "./AnalysisPanel/AnalysisPanel";
+import './App.css';
 
 type Props = {
   title: string;
@@ -8,7 +9,7 @@ type Props = {
 
 function App(props: Props) {
   return (
-    <div>
+    <div className="container">
       <Header title={props.title} />
       <AnalysisPanel/>
     </div>

@@ -1,0 +1,8 @@
+.chatArea{
+  display: flex;
+  flex-direction: column;
+}
+
+.chatArea button{
+  margin-top: 20px;
+}

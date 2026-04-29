@@ -1,11 +1,15 @@
 import React from "react";
-import { useAnalysis } from "../hooks/useAnalysis";
+import { useAnalysis } from "../../hooks/useAnalysis";
+import './AnalysisPanel.css';
 
 export default function AnalysisPanel() {
   const { status, result, error, runAnalysis } = useAnalysis();
 
   return (
-    <div>
+    
+    <div className="chatArea">
+      <label htmlFor="chat"></label>
+      <input title="chat" type="text" id="chat"/>
       <button onClick={runAnalysis} disabled={status === "loading"}>
         {status === "loading" ? "Analyzing..." : "Analyze selected range"}
       </button>

@@ -1,5 +1,6 @@
 import { SelectedRangeData } from "./excel.types";
 
+// ========== OLD (analysis) ==========
 export interface AnalyzeSelectionRequest {
   prompt?: string;
   selection: SelectedRangeData;
@@ -22,4 +23,17 @@ export interface AnalyzeSelectionResponse {
   metrics?: AnalysisMetrics;
   summary?: string;
   error?: string;
-} 
+}
+
+// ========== NEW (ai chat) ==========
+export interface AiChatRequest {
+  userMessage: string;
+  selection: SelectedRangeData;
+}
+
+export interface AiChatResponse {
+  type: 'action' | 'analysis';
+  tool?: string;
+  params?: Record<string, unknown>;
+  message: string;
+}
