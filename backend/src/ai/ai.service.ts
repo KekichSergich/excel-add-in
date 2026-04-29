@@ -8,7 +8,7 @@ import { AIRequest } from '../common/interfaces/ai-request.interface';
 import { AIResponse } from '../common/interfaces/ai-response.interface';
 
 @Injectable()
-export class AiService {
+export class AIService {
   private llm: ChatOpenAI;
 
   constructor(private readonly analysisService: AnalysisService) {
