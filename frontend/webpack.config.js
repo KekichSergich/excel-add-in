@@ -6,7 +6,7 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://www.contoso.com/";
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -35,13 +35,6 @@ module.exports = async (env, options) => {
     module: {
       rules: [
         {
-          test: /\.ts$/,
-          exclude: /node_modules/,
-          use: {
-            loader: "babel-loader",
-          },
-        },
-        {
           test: /\.tsx?$/,
           exclude: /node_modules/,
           use: ["ts-loader"],
@@ -57,6 +50,10 @@ module.exports = async (env, options) => {
           generator: {
             filename: "assets/[name][ext][query]",
           },
+        },
+        {
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader'],
         },
       ],
     },
