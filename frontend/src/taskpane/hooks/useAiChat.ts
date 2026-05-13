@@ -21,8 +21,16 @@ export function useAiChat() {
       const request: AiChatRequest = { userMessage, selection };
       const response = await sendAiChat(request);
 
-      if (response.type === "action" && response.tool && response.params) {
-        await executeAction(response.tool, response.params);
+      if (response.type === "action") {
+        if (response.actions && response.actions.length > 0) {
+          // multiple actions — new format
+          for (const action of response.actions) {
+            await executeAction(action.tool, action.params);
+          }
+        } else if (response.tool && response.params) {
+          // single action — backwards compatibility
+          await executeAction(response.tool, response.params);
+        }
       }
 
       setState({ status: "success", response, error: null });

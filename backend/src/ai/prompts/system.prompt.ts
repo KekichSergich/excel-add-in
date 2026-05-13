@@ -12,26 +12,14 @@ The user will provide:
 1. Their request in natural language
 2. The currently selected spreadsheet data as context
 
-RESPONSE FORMAT:
-Always respond with a valid JSON object in one of these two formats:
+IMPORTANT — MULTIPLE ACTIONS:
+If the user's request requires multiple steps (e.g. "calculate sum AND write headers"),
+call the necessary tools one by one. You can call several tools in a single response.
+Do not stop after the first tool if more actions are needed.
 
-If an action is needed:
-{
-  "type": "action",
-  "tool": "<tool_name>",
-  "params": { ... },
-  "message": "<brief explanation to show the user>"
-}
-
-If only analysis/answer is needed (no Excel changes):
-{
-  "type": "analysis",
-  "message": "<your analytical response to the user>"
-}
-
-RULES:
-- Always respond with JSON only, no extra text outside the JSON
-- Use the spreadsheet context to determine correct cell addresses and ranges
-- When generating formulas, use the actual range addresses from the context
-- message field must always be in the same language as the user's request
+RESPONSE RULES:
+- Use tools for any modification to the spreadsheet (formulas, values, tables, deletion)
+- For pure analysis or questions (no Excel changes needed), respond with a plain text answer
+- Always reply in the same language as the user's request
+- After all tool calls are done, write a brief summary of what was done
 `;

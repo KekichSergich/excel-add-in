@@ -32,6 +32,7 @@ export interface AiChatRequest {
 }
 
 export interface AiChatResponse {
+  actions: any;
   type: 'action' | 'analysis';
   tool?: string;
   params?: Record<string, unknown>;
