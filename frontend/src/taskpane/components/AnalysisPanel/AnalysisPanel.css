@@ -6,3 +6,24 @@
 .chatArea button{
   margin-top: 20px;
 }
+.modeSwitcher {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.modeBtn.active {
+  background: #0078d4;
+  color: white;
+  border-color: #0078d4;
+}

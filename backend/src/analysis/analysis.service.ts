@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { SelectionContext } from '../common/interfaces/selection.interface';
+import type { IAnalysisService } from './interfaces/analysis.service.interface';
 
 @Injectable()
-export class AnalysisService {
+export class AnalysisService implements IAnalysisService {
   prepareContext(data: {
     selection: {
       worksheetName: string;

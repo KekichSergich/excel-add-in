@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ChatOpenAI } from '@langchain/openai';
 import {
   HumanMessage,
@@ -7,29 +7,39 @@ import {
 } from '@langchain/core/messages';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 
-import { AnalysisService } from '../analysis/analysis.service';
-import { SelectionContext } from '../common/interfaces/selection.interface';
-import { AIRequest } from '../common/interfaces/ai-request.interface';
-import {
+import type { SemanticProfile } from '../semantic/interfaces/semantic-profile.interface';
+import type { SelectionContext } from '../common/interfaces/selection.interface';
+import type {
   AIResponse,
   AIAction,
-} from '../common/interfaces/ai-response.interface';
+  AIRequest,
+} from './interfaces/ai.interface';
+import type { IAIService } from './interfaces/ai.service.interface';
+import type { IAnalysisService } from '../analysis/interfaces/analysis.service.interface';
+import type { ISemanticService } from '../semantic/interfaces/semantic.service.interface';
+
 import { SYSTEM_PROMPT } from './prompts/system.prompt';
 import { toolsRegistry } from '../tools/tools.registry';
+import { ANALYSIS_SERVICE } from '../analysis/interfaces/analysis.service.interface';
+import { SEMANTIC_SERVICE } from '../semantic/interfaces/semantic.service.interface';
 
 @Injectable()
-export class AIService {
+export class AIService implements IAIService {
   private readonly logger = new Logger(AIService.name);
   private agent: ReturnType<typeof createReactAgent>;
 
-  constructor(private readonly analysisService: AnalysisService) {
+  constructor(
+    @Inject(ANALYSIS_SERVICE)
+    private readonly analysisService: IAnalysisService,
+    @Inject(SEMANTIC_SERVICE)
+    private readonly semanticService: ISemanticService,
+  ) {
     const llm = new ChatOpenAI({
       model: 'gpt-4o-mini',
       temperature: 0,
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Create LangGraph ReAct agent with the tools registry
     this.agent = createReactAgent({
       llm,
       tools: toolsRegistry,
@@ -37,15 +47,45 @@ export class AIService {
   }
 
   async processRequest(request: AIRequest): Promise<AIResponse> {
-    // 1. Prepare spreadsheet context from selected range
-    const context = this.analysisService.prepareContext({
-      selection: request.selection,
-    });
+    let context: SelectionContext | null = null;
+    let profile: SemanticProfile;
 
-    // 2. Build user prompt with context injected
-    const userPrompt = this.buildUserPrompt(request.userMessage, context);
+    if (request.mode === 'selection') {
+      // Selection mode — use selected range for both context and profile
+      if (!request.selection) {
+        throw new Error('Selection is required in selection mode');
+      }
 
-    // 3. Run the agent — it decides how many steps are needed
+      context = this.analysisService.prepareContext({
+        selection: request.selection,
+      });
+
+      profile = this.semanticService.buildProfile([
+        {
+          name: context.worksheetName,
+          values: context.values,
+        },
+      ]);
+    } else {
+      // All-sheets mode — use all sheets for profile
+      if (!request.sheets || request.sheets.length === 0) {
+        throw new Error('Sheets are required in all-sheets mode');
+      }
+
+      profile = this.semanticService.buildProfile(request.sheets);
+
+      // Context is null — no selected range in this mode
+      context = null;
+    }
+
+    // Build user prompt
+    const userPrompt = this.buildUserPrompt(
+      request.userMessage,
+      context,
+      profile,
+    );
+
+    // Run the agent
     const result = await this.agent.invoke({
       messages: [
         new SystemMessage(SYSTEM_PROMPT),
@@ -53,20 +93,16 @@ export class AIService {
       ],
     });
 
-    // 4. Collect all tool calls from the agent message history
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const actions = this.extractActions(result.messages);
-
-    // 5. Final text — last AI message in the history
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const finalMessage = this.extractFinalMessage(result.messages);
 
-    // 6. Build AIResponse based on number of actions
     if (actions.length === 0) {
-      // Pure analytical response — no spreadsheet modifications
       return { type: 'analysis', message: finalMessage };
     }
 
     if (actions.length === 1) {
-      // Single action — backwards compatible format
       return {
         type: 'action',
         tool: actions[0].tool,
@@ -75,28 +111,103 @@ export class AIService {
       };
     }
 
-    // Multiple actions — new format with actions array
     return { type: 'action', actions, message: finalMessage };
   }
 
-  // eslint-disable-next-line prettier/prettier
-  private buildUserPrompt(userMessage: string, context: SelectionContext): string {
-    return `
-User request: "${userMessage}"
+  private buildUserPrompt(
+    userMessage: string,
+    context: SelectionContext | null,
+    profile: SemanticProfile,
+  ): string {
+    // Build column semantic summary — one line per column
+    const columnSummary = profile.sheets.map(function (sheet) {
+      const cols = sheet.columns.map(function (col) {
+        const parts: string[] = [];
+        parts.push(`name: ${col.name}`);
+        parts.push(`role: ${col.semanticRole}`);
+        parts.push(`type: ${col.type}`);
 
-Spreadsheet context:
-- Worksheet: ${context.worksheetName}
-- Selected range: ${context.address}
-- Columns (${context.colCount}): ${JSON.stringify(context.headers)}
-- Column types: ${JSON.stringify(context.dataTypes)}
-- Row count: ${context.rowCount}
-- Data:
-${JSON.stringify(context.dataRows, null, 2)}
+        if (col.quality.nullPercent > 0) {
+          parts.push(`missing: ${col.quality.nullPercent}%`);
+        }
+
+        if (col.quality.outlierCount > 0) {
+          parts.push(`outliers: ${col.quality.outlierCount}`);
+        }
+
+        return `    - ${parts.join(', ')}`;
+      });
+
+      return `  Sheet "${sheet.name}" (${sheet.rowCount} rows, quality: ${sheet.qualityScore}/100):\n${cols.join('\n')}`;
+    });
+
+    // Build quality issues summary across all sheets
+    const allIssues: string[] = [];
+    for (const sheet of profile.sheets) {
+      for (const issue of sheet.qualityIssues) {
+        allIssues.push(`[${sheet.name}] ${issue}`);
+      }
+    }
+
+    const qualitySection =
+      allIssues.length > 0
+        ? `Data quality issues:\n${allIssues
+            .map(function (i) {
+              return `  - ${i}`;
+            })
+            .join('\n')}`
+        : 'Data quality: no issues detected';
+
+    // Build workbook-level insights
+    const workbookInsights: string[] = [];
+
+    if (profile.hasFactAndPlan) {
+      workbookInsights.push(
+        'Workbook contains Fact vs Plan sheets — variance analysis is possible',
+      );
+    }
+
+    if (profile.hasTimeSeries) {
+      workbookInsights.push(
+        'Workbook contains time-series sheets — trend analysis is possible',
+      );
+    }
+
+    const workbookSection =
+      workbookInsights.length > 0
+        ? `Workbook insights:\n${workbookInsights
+            .map(function (i) {
+              return `  - ${i}`;
+            })
+            .join('\n')}`
+        : '';
+
+    // Build selection context section — only in selection mode
+    const selectionSection =
+      context !== null
+        ? `Selected range context:
+  - Worksheet: ${context.worksheetName}
+  - Address: ${context.address}
+  - Row count: ${context.rowCount}
+
+  Raw data:
+  ${JSON.stringify(context.dataRows, null, 2)}`
+        : 'Mode: full workbook analysis — no specific range selected';
+
+    return `
+  User request: "${userMessage}"
+
+  ${selectionSection}
+
+  Semantic profile of the workbook:
+  ${columnSummary.join('\n\n')}
+
+  ${qualitySection}
+  ${workbookSection}
     `.trim();
   }
 
-  // Walk through all agent messages and collect tool invocations.
-  // ToolMessage content is a JSON string { tool, params } returned by func().
+  // Walk through all agent messages and collect tool invocations
   private extractActions(messages: unknown[]): AIAction[] {
     const actions: AIAction[] = [];
 
@@ -116,23 +227,35 @@ ${JSON.stringify(context.dataRows, null, 2)}
     return actions;
   }
 
-  // Return the last AI message text as the final user-facing response.
+  // Return the last AI message text as the final user-facing response
   private extractFinalMessage(messages: unknown[]): string {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as { getType?: () => string; content?: unknown };
+
       if (msg?.getType?.() === 'ai') {
         const content = msg.content;
-        if (typeof content === 'string' && content.trim()) return content;
-        // content can be an array of blocks
+
+        if (typeof content === 'string' && content.trim()) {
+          return content;
+        }
+
         if (Array.isArray(content)) {
           const text = content
-            .filter((b: { type?: string }) => b.type === 'text')
-            .map((b: { text?: string }) => b.text ?? '')
+            .filter(function (b: { type?: string }) {
+              return b.type === 'text';
+            })
+            .map(function (b: { text?: string }) {
+              return b.text ?? '';
+            })
             .join('');
-          if (text.trim()) return text;
+
+          if (text.trim()) {
+            return text;
+          }
         }
       }
     }
+
     return 'Done.';
   }
 }

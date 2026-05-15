@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { getSelectedRangeData } from "../services/excel.service";
+import { getSelectedRangeData, getAllSheetsData } from "../services/excel.service";
 import { AiChatRequest, AiChatResponse } from "../types/api.types";
 import { sendAiChat } from "../services/api.client";
 import { executeAction } from "../services/command-executor.service";
 import { ChatState } from "../types/chat-state.interface";
 
-type ChatStatus = "idle" | "loading" | "success" | "error";
+export type ChatMode = "selection" | "all-sheets";
 
 export function useAiChat() {
   const [state, setState] = useState<ChatState>({
@@ -14,11 +14,30 @@ export function useAiChat() {
     error: null,
   });
 
-  const sendMessage = async (userMessage: string) => {
+  const sendMessage = async (userMessage: string, mode: ChatMode = "selection") => {
     try {
       setState({ status: "loading", response: null, error: null });
-      const selection = await getSelectedRangeData();
-      const request: AiChatRequest = { userMessage, selection };
+
+      let request: AiChatRequest;
+
+      if (mode === "selection") {
+        // Read only selected range
+        const selection = await getSelectedRangeData();
+        request = {
+          userMessage,
+          mode: "selection",
+          selection,
+        };
+      } else {
+        // Read all sheets from the workbook
+        const sheets = await getAllSheetsData();
+        request = {
+          userMessage,
+          mode: "all-sheets",
+          sheets,
+        };
+      }
+
       const response = await sendAiChat(request);
 
       if (response.type === "action") {
@@ -36,7 +55,11 @@ export function useAiChat() {
       setState({ status: "success", response, error: null });
 
     } catch (e) {
-      setState({ status: "error", response: null, error: e instanceof Error ? e.message : "Unknown error" });
+      setState({
+        status: "error",
+        response: null,
+        error: e instanceof Error ? e.message : "Unknown error",
+      });
     }
   };
 

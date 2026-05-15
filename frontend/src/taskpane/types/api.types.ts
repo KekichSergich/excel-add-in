@@ -1,6 +1,5 @@
 import { SelectedRangeData } from "./excel.types";
 
-// ========== OLD (analysis) ==========
 export interface AnalyzeSelectionRequest {
   prompt?: string;
   selection: SelectedRangeData;
@@ -25,14 +24,25 @@ export interface AnalyzeSelectionResponse {
   error?: string;
 }
 
+
 // ========== NEW (ai chat) ==========
 export interface AiChatRequest {
   userMessage: string;
-  selection: SelectedRangeData;
+  mode: 'selection' | 'all-sheets';  
+  selection?: SelectedRangeData;      // only if mode = 'selection'
+  sheets?: Array<{                    // only if mode = 'all-sheets'
+    name: string;
+    values: unknown[][];
+  }>;
+}
+
+export interface AiAction {
+  tool: string;
+  params: Record<string, unknown>;
 }
 
 export interface AiChatResponse {
-  actions: any;
+  actions?: AiAction[];
   type: 'action' | 'analysis';
   tool?: string;
   params?: Record<string, unknown>;

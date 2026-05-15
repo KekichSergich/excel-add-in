@@ -31,3 +31,19 @@ export async function sendAiChat(request: AiChatRequest): Promise<AiChatResponse
 
   return response.json() as Promise<AiChatResponse>;
 }
+
+export async function getSemanticProfile(
+  sheets: Array<{ name: string; values: unknown[][] }>
+) {
+  const response = await fetch(`${API_BASE_URL}/semantic/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sheets }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json();
+}

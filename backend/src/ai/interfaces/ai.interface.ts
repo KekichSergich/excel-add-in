@@ -1,3 +1,19 @@
+export interface SheetData {
+  name: string;
+  values: unknown[][];
+}
+
+export interface AIRequest {
+  userMessage: string;
+  mode: 'selection' | 'all-sheets';
+  selection?: {
+    worksheetName: string;
+    address: string;
+    values: unknown[][];
+  };
+  sheets?: SheetData[];
+}
+
 export interface AIAction {
   tool: string;
   params: Record<string, unknown>;
