@@ -19,6 +19,7 @@ import type { IAnalysisService } from '../analysis/interfaces/analysis.service.i
 import type { ISemanticService } from '../semantic/interfaces/semantic.service.interface';
 
 import { SYSTEM_PROMPT } from './prompts/system.prompt';
+import { buildUserPrompt } from './prompts/user-prompt.builder';
 import { toolsRegistry } from '../tools/tools.registry';
 import { ANALYSIS_SERVICE } from '../analysis/interfaces/analysis.service.interface';
 import { SEMANTIC_SERVICE } from '../semantic/interfaces/semantic.service.interface';
@@ -51,7 +52,6 @@ export class AIService implements IAIService {
     let profile: SemanticProfile;
 
     if (request.mode === 'selection') {
-      // Selection mode — use selected range for both context and profile
       if (!request.selection) {
         throw new Error('Selection is required in selection mode');
       }
@@ -67,25 +67,16 @@ export class AIService implements IAIService {
         },
       ]);
     } else {
-      // All-sheets mode — use all sheets for profile
       if (!request.sheets || request.sheets.length === 0) {
         throw new Error('Sheets are required in all-sheets mode');
       }
 
       profile = this.semanticService.buildProfile(request.sheets);
-
-      // Context is null — no selected range in this mode
       context = null;
     }
 
-    // Build user prompt
-    const userPrompt = this.buildUserPrompt(
-      request.userMessage,
-      context,
-      profile,
-    );
+    const userPrompt = buildUserPrompt(request.userMessage, context, profile);
 
-    // Run the agent
     const result = await this.agent.invoke({
       messages: [
         new SystemMessage(SYSTEM_PROMPT),
@@ -114,100 +105,6 @@ export class AIService implements IAIService {
     return { type: 'action', actions, message: finalMessage };
   }
 
-  private buildUserPrompt(
-    userMessage: string,
-    context: SelectionContext | null,
-    profile: SemanticProfile,
-  ): string {
-    // Build column semantic summary — one line per column
-    const columnSummary = profile.sheets.map(function (sheet) {
-      const cols = sheet.columns.map(function (col) {
-        const parts: string[] = [];
-        parts.push(`name: ${col.name}`);
-        parts.push(`role: ${col.semanticRole}`);
-        parts.push(`type: ${col.type}`);
-
-        if (col.quality.nullPercent > 0) {
-          parts.push(`missing: ${col.quality.nullPercent}%`);
-        }
-
-        if (col.quality.outlierCount > 0) {
-          parts.push(`outliers: ${col.quality.outlierCount}`);
-        }
-
-        return `    - ${parts.join(', ')}`;
-      });
-
-      return `  Sheet "${sheet.name}" (${sheet.rowCount} rows, quality: ${sheet.qualityScore}/100):\n${cols.join('\n')}`;
-    });
-
-    // Build quality issues summary across all sheets
-    const allIssues: string[] = [];
-    for (const sheet of profile.sheets) {
-      for (const issue of sheet.qualityIssues) {
-        allIssues.push(`[${sheet.name}] ${issue}`);
-      }
-    }
-
-    const qualitySection =
-      allIssues.length > 0
-        ? `Data quality issues:\n${allIssues
-            .map(function (i) {
-              return `  - ${i}`;
-            })
-            .join('\n')}`
-        : 'Data quality: no issues detected';
-
-    // Build workbook-level insights
-    const workbookInsights: string[] = [];
-
-    if (profile.hasFactAndPlan) {
-      workbookInsights.push(
-        'Workbook contains Fact vs Plan sheets — variance analysis is possible',
-      );
-    }
-
-    if (profile.hasTimeSeries) {
-      workbookInsights.push(
-        'Workbook contains time-series sheets — trend analysis is possible',
-      );
-    }
-
-    const workbookSection =
-      workbookInsights.length > 0
-        ? `Workbook insights:\n${workbookInsights
-            .map(function (i) {
-              return `  - ${i}`;
-            })
-            .join('\n')}`
-        : '';
-
-    // Build selection context section — only in selection mode
-    const selectionSection =
-      context !== null
-        ? `Selected range context:
-  - Worksheet: ${context.worksheetName}
-  - Address: ${context.address}
-  - Row count: ${context.rowCount}
-
-  Raw data:
-  ${JSON.stringify(context.dataRows, null, 2)}`
-        : 'Mode: full workbook analysis — no specific range selected';
-
-    return `
-  User request: "${userMessage}"
-
-  ${selectionSection}
-
-  Semantic profile of the workbook:
-  ${columnSummary.join('\n\n')}
-
-  ${qualitySection}
-  ${workbookSection}
-    `.trim();
-  }
-
-  // Walk through all agent messages and collect tool invocations
   private extractActions(messages: unknown[]): AIAction[] {
     const actions: AIAction[] = [];
 
@@ -227,7 +124,6 @@ export class AIService implements IAIService {
     return actions;
   }
 
-  // Return the last AI message text as the final user-facing response
   private extractFinalMessage(messages: unknown[]): string {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as { getType?: () => string; content?: unknown };
@@ -241,12 +137,8 @@ export class AIService implements IAIService {
 
         if (Array.isArray(content)) {
           const text = content
-            .filter(function (b: { type?: string }) {
-              return b.type === 'text';
-            })
-            .map(function (b: { text?: string }) {
-              return b.text ?? '';
-            })
+            .filter((b: { type?: string }) => b.type === 'text')
+            .map((b: { text?: string }) => b.text ?? '')
             .join('');
 
           if (text.trim()) {
