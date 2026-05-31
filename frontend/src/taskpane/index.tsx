@@ -6,6 +6,6 @@ Office.onReady(() => {
   const container = document.getElementById("container");
   if (container) {
     const root = createRoot(container);
-    root.render(<App title="My App" />);
+    root.render(<App title="" />);
   }
 });
