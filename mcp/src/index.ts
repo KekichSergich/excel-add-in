@@ -15,7 +15,7 @@ const app = createMcpExpressApp({ host: HOST });
 const sessions = new SessionStore();
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', sessions: sessions.size });
 });
 
 app.post('/mcp', async (_req, res) => {
@@ -23,7 +23,7 @@ app.post('/mcp', async (_req, res) => {
 
   // Case 1: existing session -> route to its transport 
   if (sessionId){
-    const transport = sessions.get(sessionId)?.transport;
+    const transport = sessions.touch(sessionId)?.transport;
     if (!transport){
       res.status(404).json({jsonrpc: '2.0', error: {code: -32001, message: 'Session not found' }, id: null });
       return;
@@ -58,7 +58,7 @@ app.post('/mcp', async (_req, res) => {
 
 async function handleSessionRequest(req: Request, res: Response) : Promise<void>{
   const sessionId = req.header('mcp-session-id');
-  const transport = sessionId ? sessions.get(sessionId)?.transport : undefined;
+  const transport = sessionId ? sessions.touch(sessionId)?.transport : undefined;
   if(!transport) {
     res.status(404).json({jsonrpc: '2.0', error: { code: -32001, message: 'Session not found'}, id: null});
     return;

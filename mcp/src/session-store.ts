@@ -18,4 +18,13 @@ export class SessionStore {
   get size(): number {
     return this.sessions.size;
   }
+  touch(id:string): Session | undefined {
+    let session = this.sessions.get(id);
+    if (session) {
+      session.lastSeenAt = Date.now();
+    } else {
+      return undefined;
+    }
+    return session;
+  }
 }
