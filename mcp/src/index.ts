@@ -69,6 +69,16 @@ async function handleSessionRequest(req: Request, res: Response) : Promise<void>
 app.get('/mcp', handleSessionRequest);
 app.delete('/mcp', handleSessionRequest);
 
+const SESSION_TTL_MS = Number(process.env.MCP_SESSION_TTL_MS ?? 30 * 60 * 1000);   // 30 min
+const SWEEP_INTERVAL_MS = Number(process.env.MCP_SWEEP_INTERVAL_MS ?? 60 * 1000);
+
+const sweepTimer = setInterval(async () => {
+  const removed = await sessions.sweep(SESSION_TTL_MS);
+  if (removed > 0){
+    console.error(`[mcp] swept ${removed} idle session(s), ${sessions.size} left`);
+  }
+}, SWEEP_INTERVAL_MS);
+
 app.listen(PORT, HOST, () => {
   console.error(`[mcp] listening on http://${HOST}:${PORT}`);
 });

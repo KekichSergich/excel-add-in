@@ -27,4 +27,25 @@ export class SessionStore {
     }
     return session;
   }
+
+  async sweep(ttlMs: number): Promise<number>{
+    const now: number = Date.now();
+    let removed: number = 0;
+    const entries = this.sessions.entries();
+
+    for (const entry of entries){
+      const id: string = entry[0];
+      const session: Session = entry[1];
+      const idleTime: number = now - session.lastSeenAt;
+      const isExpired: boolean = idleTime > ttlMs;
+
+      if(isExpired === true){
+        this.sessions.delete(id);
+        await session.server.close();
+        removed = removed + 1;
+      }
+    }
+
+    return removed;
+  }
 }
